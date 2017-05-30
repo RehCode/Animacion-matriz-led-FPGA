@@ -11,87 +11,69 @@ end mover;
 
 architecture Behavioral of mover is
 signal dataArray : std_logic_vector(15 downto 0):=x"0B07";
+signal salidaArray : std_logic_vector(15 downto 0):=x"0B07";
 signal dataOutCount : std_logic_vector(4 downto 0):="00000" ;
 signal load     : std_logic := '1';
 signal salidaDato : std_logic := '0';
-type estados is (initcolumnas, encender, borrar, dibujar, dibujarFlechas, dibujaCuadro, dibujarDigitos, dibujarOjo);
+type estados is (initcolumnas, encender, borrar, dibujar);
 signal presente: estados;
+signal datoEnviado : std_logic := '0';
+-- signal grafico : std_logic_vector(3 downto 0) := (others => '0');
+signal grafico : integer range 0 to 8;
+signal cambiarGrafico : std_logic := '0';
+signal cambioGrafico : std_logic := '0';
 
-type mem4x8x8 is array (0 to 3, 0 to 7) of std_logic_vector(7 downto 0);
-constant memoria_cuadro : mem4x8x8 :=
-((x"00",x"00",x"00",x"18",x"18",x"00",x"00",x"00"),
- (x"00",x"00",x"3C",x"24",x"24",x"3C",x"00",x"00"),
- (x"00",x"7E",x"42",x"42",x"42",x"42",x"7E",x"00"),
- (x"FF",x"81",x"81",x"81",x"81",x"81",x"81",x"FF"));
+ type memIntegers5x2 is array (0 to 4, 0 to 1) of integer range 0 to 16;
+ constant memDirecciones : memIntegers5x2 :=
+ (
+     (1,1),
+     (2,2),
+     (3,3),
+     (5,5),
+     (8,15)
+ );
 
-constant memoria_flechas : mem4x8x8 :=
-((x"08",x"0C",x"FE",x"FF",x"FE",x"0C",x"08",x"00"),
- (x"38",x"38",x"38",x"38",x"FE",x"7C",x"38",x"10"),
- (x"10",x"30",x"7F",x"FF",x"7F",x"30",x"10",x"00"),
- (x"10",x"38",x"7C",x"FE",x"38",x"38",x"38",x"38"));
+type mem16x8x8 is array (0 to 15, 0 to 7) of std_logic_vector(7 downto 0);
+constant memoria_graficos : mem16x8x8 :=
 
-
-type mem10x8x8 is array (0 to 9, 0 to 7) of std_logic_vector(7 downto 0);
-constant memoria_digitos : mem10x8x8 :=
-(("00010000", "00110000", "00010000", "00010000", "00010000", "00010000", "00010000", "00111000"),
- ("00111000", "01000100", "00000100", "00000100", "00001000", "00010000", "00100000", "01111100"),
- ("00111000", "01000100", "00000100", "00011000", "00000100", "00000100", "01000100", "00111000"),
- ("00000100", "00001100", "00010100", "00100100", "01000100", "01111100", "00000100", "00000100"),
- ("01111100", "01000000", "01000000", "01111000", "00000100", "00000100", "01000100", "00111000"),
- ("00111000", "01000100", "01000000", "01111000", "01000100", "01000100", "01000100", "00111000"),
- ("01111100", "00000100", "00000100", "00001000", "00010000", "00100000", "00100000", "00100000"),
- ("00111000", "01000100", "01000100", "00111000", "01000100", "01000100", "01000100", "00111000"),
- ("00111000", "01000100", "01000100", "01000100", "00111100", "00000100", "01000100", "00111000"),
- ("00111000", "01000100", "01000100", "01000100", "01000100", "01000100", "01000100", "00111000"));
-
-type mem8x8x8 is array (0 to 7, 0 to 7) of std_logic_vector(7 downto 0);
-constant memoria_bateria : mem8x8x8 :=
-
-((x"44",x"82",x"82",x"82",x"82",x"82",x"82",x"82"),
+(("00010000", "00110000", "00010000", "00010000", "00010000", "00010000", "00010000", "00111000"), -- digito 1
+ ("00111000", "01000100", "00000100", "00000100", "00001000", "00010000", "00100000", "01111100"), -- digito 2
+ ("00111000", "01000100", "00000100", "00011000", "00000100", "00000100", "01000100", "00111000"), -- digito 3
+ (x"08",x"0C",x"FE",x"FF",x"FE",x"0C",x"08",x"00"), -- flecha izquierda (4)
+ (x"38",x"38",x"38",x"38",x"FE",x"7C",x"38",x"10"), -- flecha derecha (5)
+ (x"00",x"00",x"00",x"18",x"18",x"00",x"00",x"00"), -- cuadro centro (6)
+ (x"00",x"00",x"3C",x"24",x"24",x"3C",x"00",x"00"), -- cuadro exterior (7)
+ (x"44",x"82",x"82",x"82",x"82",x"82",x"82",x"82"), -- bateria 1 (8)
  (x"44",x"82",x"82",x"82",x"82",x"82",x"82",x"BA"),
  (x"44",x"82",x"82",x"82",x"82",x"BA",x"82",x"BA"),
  (x"44",x"82",x"82",x"BA",x"82",x"BA",x"82",x"BA"),
  (x"44",x"BA",x"82",x"BA",x"82",x"BA",x"82",x"BA"),
  (x"44",x"82",x"82",x"BA",x"82",x"BA",x"82",x"BA"),
  (x"44",x"82",x"82",x"82",x"82",x"BA",x"82",x"BA"),
- (x"44",x"82",x"82",x"82",x"82",x"82",x"82",x"BA"));
-
-constant memoria_ojo : mem8x8x8 :=
-((x"18",x"66",x"CF",x"8D",x"81",x"C3",x"66",x"18"),
- (x"18",x"66",x"C3",x"8D",x"8D",x"C3",x"66",x"18"),
- (x"18",x"66",x"C3",x"99",x"99",x"C3",x"66",x"18"),
- (x"18",x"66",x"C3",x"B1",x"B1",x"C3",x"66",x"18"),
- (x"18",x"66",x"F3",x"B1",x"81",x"C3",x"66",x"18"),
- (x"18",x"66",x"DB",x"99",x"81",x"C3",x"66",x"18"),
- (x"00",x"1A",x"26",x"4E",x"40",x"24",x"18",x"00"), -- flecha circular
- (x"0E",x"1C",x"38",x"70",x"38",x"1C",x"0E",x"00")); -- flecha simple
+ (x"44",x"82",x"82",x"82",x"82",x"82",x"82",x"BA"), -- bateria 8 final (15)
+ (x"44",x"82",x"82",x"82",x"82",x"82",x"82",x"BA")); -- final (16)
 
 begin
 
 salida_datos : process( clk, pb1 )
-variable memCol : integer range 0 to 8;
-variable memRow : integer range 0 to 21;
-variable conteoReloj : integer range 0 to 5000;
-variable delta : integer range 0 to 100;
-    variable sprite : integer range 0 to 5;
     variable delta2 : integer range 0 to 1200;
     constant retraso : integer := 1200;
 begin
     if rising_edge(clk) then
         if sw_reset = '1' then
-            presente <= initcolumnas;
             dataOutCount <= (others => '0');
             load <= '1';
-            memCol := 0;
-            conteoReloj := 0;
-            memRow := 0;
-            sprite := 0;
-            delta := 0;
+            grafico <= 0;
         else
+            if dataOutCount = "00000" then
+                salidaArray <= dataArray;
+            end if;
+
             dataOutCount <= dataOutCount + 1;
             if dataOutCount <= "01111" then
-                salidaDato <= dataArray(15);
-                dataArray <= dataArray(14 downto 0) & dataArray(15);
+                salidaDato <= salidaArray(15);
+
+                salidaArray <= salidaArray(14 downto 0) & salidaArray(15);
             end if;
 
             if dataOutCount >= "10000" then
@@ -102,251 +84,102 @@ begin
 
             if dataOutCount = "11001" then -- 13 "10011" 25 "11001"
                 dataOutCount <= (others => '0');
-
-                case( presente ) is
-                    when initcolumnas =>
-                        dataArray <= x"0B07"; -- activar columnas
-                        presente <= encender;
-                    when encender =>
-                        dataArray <= x"0C01"; -- encender
-                        presente <= borrar;
-                    when borrar =>
-                        dataArray <= x"0" & CONV_STD_LOGIC_VECTOR(memCol + 1, 4) & x"00";
-                        memCol := memCol + 1;
-                        if memCol = 8 then
-                            memCol := 0;
-                            presente <= dibujar;
-                        end if ;
-                    when dibujar =>
-                        dataArray <= x"0" & CONV_STD_LOGIC_VECTOR(memCol + 1, 4) & memoria_bateria(memRow, memCol);
-                        memCol := memCol + 1;
-
-                        if memCol = 8 then
-                            memCol := 0;
-                            conteoReloj := conteoReloj + 1;
-                        end if;
-
-                        -- 25*5=50
-                        if conteoReloj = 15 then
-                            conteoReloj := 0;
-                            memRow := memRow + 1;
-                            if memRow = 8 then
-                                memRow := 0;
-
-                                if sprite = 0 then
-                                    presente <= dibujar;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                elsif sprite = 1 then
-                                    presente <= dibujarFlechas;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                elsif sprite = 2 then
-                                    presente <= dibujaCuadro;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                elsif sprite = 3 then
-                                    presente <= dibujarDigitos;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                else
-                                    presente <= dibujarOjo;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                end if;
-
-                            end if;
-                        end if ;
-
-
-                    when dibujarFlechas =>
-                        dataArray <= x"0" & CONV_STD_LOGIC_VECTOR(memCol + 1, 4) & memoria_flechas(memRow, memCol);
-                        memCol := memCol + 1;
-
-                        if memCol = 8 then
-                            memCol := 0;
-                            conteoReloj := conteoReloj + 1;
-                        end if;
-
-
-                        -- 25*5=50
-                        if conteoReloj = 25 then
-                            conteoReloj := 0;
-                            memRow := memRow + 1;
-                            if memRow = 4 then
-                                memRow := 0;
-                                if sprite = 0 then
-                                    presente <= dibujar;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                elsif sprite = 1 then
-                                    presente <= dibujarFlechas;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                elsif sprite = 2 then
-                                    presente <= dibujaCuadro;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                elsif sprite = 3 then
-                                    presente <= dibujarDigitos;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                else
-                                    presente <= dibujarOjo;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                end if;
-                            end if;
-                        end if ;
-
-
-                    when dibujaCuadro =>
-                        dataArray <= x"0" & CONV_STD_LOGIC_VECTOR(memCol + 1, 4) & memoria_cuadro(memRow, memCol);
-                        memCol := memCol + 1;
-
-                        if memCol = 8 then
-                            memCol := 0;
-                            conteoReloj := conteoReloj + 1;
-                        end if;
-
-                        if memRow = 0 then
-                            delta := 1;
-                        else
-                            delta := 5;
-                        end if;
-
-                        -- 25*5=50
-                        if conteoReloj = delta then
-                            conteoReloj := 0;
-                            memRow := memRow + 1;
-                            if memRow = 2 then
-                                memRow := 0;
-                                if sprite = 0 then
-                                    presente <= dibujar;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                elsif sprite = 1 then
-                                    presente <= dibujarFlechas;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                elsif sprite = 2 then
-                                    presente <= dibujaCuadro;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                elsif sprite = 3 then
-                                    presente <= dibujarDigitos;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                else
-                                    presente <= dibujarOjo;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                end if;
-
-                            end if;
-                        end if ;
-
-                    when dibujarDigitos =>
-                        dataArray <= x"0" & CONV_STD_LOGIC_VECTOR(memCol + 1, 4) & memoria_digitos(memRow, memCol);
-                        memCol := memCol + 1;
-
-                        if memCol = 8 then
-                            memCol := 0;
-                            conteoReloj := conteoReloj + 1;
-                        end if;
-
-
-                        -- 25*5=50
-                        if conteoReloj = 25 then
-                            conteoReloj := 0;
-                            memRow := memRow + 1;
-                            if memRow = 10 then
-                                memRow := 0;
-                                if sprite = 0 then
-                                    presente <= dibujar;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                elsif sprite = 1 then
-                                    presente <= dibujarFlechas;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                elsif sprite = 2 then
-                                    presente <= dibujaCuadro;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                elsif sprite = 3 then
-                                    presente <= dibujarDigitos;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                else
-                                    presente <= dibujarOjo;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                end if;
-                            end if;
-                        end if ;
-                        --- aniadido
-                    when dibujarOjo =>
-                        dataArray <= x"0" & CONV_STD_LOGIC_VECTOR(memCol + 1, 4) & memoria_ojo(memRow, memCol);
-                        memCol := memCol + 1;
-
-                        if memCol = 8 then
-                            memCol := 0;
-                            conteoReloj := conteoReloj + 1;
-                        end if;
-
-
-                        -- 25*5=50
-                        if conteoReloj = 25 then
-                            conteoReloj := 0;
-                            memRow := memRow + 1;
-                            if memRow = 8 then
-                                memRow := 0;
-                                if sprite = 0 then
-                                    presente <= dibujar;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                elsif sprite = 1 then
-                                    presente <= dibujarFlechas;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                elsif sprite = 2 then
-                                    presente <= dibujaCuadro;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                elsif sprite = 3 then
-                                    presente <= dibujarDigitos;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                else
-                                    presente <= dibujarOjo;
-                                    memCol := 0;
-                                    conteoReloj := 0;
-                                end if;
-                            end if;
-                        end if ;
-                    when others =>
-                        presente <= initcolumnas;
-                end case ;
+                datoEnviado <= '1';
+            else
+                datoEnviado <= '0';
             end if;
         end if;
 
-        if pb1 = '0' then
+        if pb1 = '0' then -- boton para cambiar imagen
             delta2 := delta2 + 1;
-            if delta2 = retraso then
-                delta2 := 0;
-                if pb1 = '0' then
-                    sprite := sprite + 1;
-                    if sprite = 5 then
-                        sprite := 0;
+            if delta2 = retraso then -- retraso para evitar rebote
+                delta2 := 0; 
+                if pb1 = '0' then -- lo acepta si continua presionado
+                    cambiarGrafico <= '1';
+                    grafico <= grafico + 1;
+                    if grafico = 5 then 
+                        grafico <= 0;
                     end if;
                 end if;
             end if;
         end if;
 
+        if cambioGrafico = '1' then
+            cambiarGrafico <= '0';
+        end if;
+
     end if;
 
 end process salida_datos;
+
+logica_salidas : process( datoEnviado )
+    variable memCol : integer range 0 to 8;
+    variable memRow : integer range 0 to 21;
+    variable conteoReloj : integer range 0 to 5000;
+    variable delta : integer range 0 to 100;
+    variable memOffset : integer range 0 to 16;
+    variable memFinal : integer range 0 to 16;
+begin
+
+    if sw_reset = '1' then
+        siguiente <= initcolumnas;
+        memCol := 0;
+        memRow := 0;
+        conteoReloj := 0;
+        delta := 0;
+    elsif datoEnviado'event and datoEnviado = '1' then
+
+        if cambiarGrafico = '1' then
+            cambioGrafico <= '1';
+            memCol := 0;
+            memRow := 0;
+            conteoReloj := 0;
+        else
+            cambioGrafico <= '0';
+        end if;
+
+        case( presente ) is
+            when initcolumnas =>
+                dataArray <= x"0B07"; -- activar las 7 columnas
+                presente <= encender;
+            when encender =>
+                dataArray <= x"0C01"; -- encender
+                presente <= borrar;
+            when borrar =>
+                dataArray <= x"0" & CONV_STD_LOGIC_VECTOR(memCol + 1, 4) & x"00"; -- avanza desde la columna 1 enviando ceros
+                memCol := memCol + 1;
+                if memCol = 8 then
+                    memCol := 0;
+                    presente <= dibujar;
+                end if ;
+            when dibujar =>
+ 
+                memOffset := memDirecciones(grafico, 0);
+                memFinal := memDirecciones(grafico, 1);
+
+                dataArray <= x"0" & CONV_STD_LOGIC_VECTOR(memCol + 1, 4) & memoria_graficos(memOffset + memRow, memCol);
+                memCol := memCol + 1;
+
+                if memCol = 8 then
+                    memCol := 0;
+                    conteoReloj := conteoReloj + 1;
+                end if;
+
+                -- 25*5=50
+                if conteoReloj = 15 then -- espera un tiempo
+                    conteoReloj := 0;
+                    memRow := memRow + 1; -- avanza siguiente imagen en memoria
+                    if memRow = memFinal then  -- termino de mostrar todas las imagenes
+                        memRow := 0;    -- iniciar de nuevo desde la primera imagen
+                    end if;
+                end if ;
+
+            when others =>
+                presente <= initcolumnas;
+        end case ;
+       
+    end if;
+end process ; -- logica_salidas
 
 clk_out <= clk;
 load_out <= load;
